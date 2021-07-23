@@ -22,7 +22,7 @@ const personSchema = new mongoose.Schema({
   number: { type: String, required: true, unique: true },
 });
 
-personSchema.pluging(uniqueValidator);
+personSchema.plugin(uniqueValidator);
 
 personSchema.set('toJSON', {
   transform: (document, returnedObject) => {
