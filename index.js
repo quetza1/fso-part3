@@ -1,7 +1,10 @@
+require('dotenv').config();
 const express = require('express');
 const app = express();
 const cors = require('cors');
 const morgan = require('morgan');
+
+const Person = require('./models/person');
 
 app.use(cors());
 
@@ -44,7 +47,9 @@ app.get('/info', (req, res) => {
 });
 
 app.get('/api/persons', (req, res) => {
-  res.json(persons);
+  Person.find({}).then((notes) => {
+    res.json(notes);
+  });
 });
 
 app.get('/api/persons/:id', (req, res) => {
@@ -57,17 +62,19 @@ app.get('/api/persons/:id', (req, res) => {
   }
 });
 
-app.delete('/api/persons/:id', (req, res) => {
-  const id = Number(req.params.id);
-  persons = persons.filter((person) => person.id !== id);
-  res.status(204).end();
+app.delete('/api/persons/:id', (req, res, next) => {
+  Person.findByIdAndRemove(req.params.id)
+    .then((result) => {
+      res.status(204).end();
+    })
+    .catch((err) => next(err));
 });
 
 const generateId = () => {
   return Math.floor(Math.random() * 10000000);
 };
 
-app.post('/api/persons', (req, res) => {
+app.post('/api/persons', (req, res, next) => {
   const body = req.body;
   if (!body.name || !body.number) {
     return res.status(400).json({ error: 'name or number is missing' });
@@ -76,14 +83,33 @@ app.post('/api/persons', (req, res) => {
   if (nameArr.includes(body.name)) {
     return res.status(400).json({ error: 'name must be unique' });
   }
-  const newPerson = {
-    id: generateId(),
+  const newPerson = new Person({
     name: body.name,
     number: body.number,
-  };
-  persons = persons.concat(newPerson);
-  res.json(persons);
+  });
+
+  newPerson
+    .save()
+    .then((savedPerson) => savedPerson.toJSON())
+    .then((savedPerson) => {
+      res.json(savedPerson);
+    })
+    .catch((error) => next(error));
 });
+
+const errorHandler = (error, req, res, next) => {
+  console.error(error.message);
+
+  if (error.name === 'CastError') {
+    return res.status(400).send({ error: 'malformatted id' });
+  } else if (error.name === 'ValidationError') {
+    return response.status(400).json({ error: error.message });
+  }
+
+  next(error);
+};
+
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
